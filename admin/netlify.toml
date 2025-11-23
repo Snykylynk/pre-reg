@@ -3,10 +3,10 @@
   command = "npm run build"
   # Directory to publish (Vite outputs to dist/)
   publish = "dist"
-  # Node version (Netlify supports 18.x, 20.x)
-  environment = { NODE_VERSION = "20" }
 
 [build.environment]
+  # Node version (Netlify supports 18.x, 20.x)
+  NODE_VERSION = "20"
   # Set NPM_FLAGS to use npm ci for faster, reliable builds
   NPM_FLAGS = "--legacy-peer-deps"
 
