@@ -5,7 +5,6 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { Select } from '@/components/ui/select'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { MultiSelect } from '@/components/MultiSelect'
 import { Combobox } from '@/components/Combobox'
@@ -25,7 +24,6 @@ const STEPS = [
 export default function RegisterEscort() {
   const [currentStep, setCurrentStep] = useState(0)
   const [loading, setLoading] = useState(false)
-  const [checkingEmail, setCheckingEmail] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
   const navigate = useNavigate()
@@ -65,7 +63,6 @@ export default function RegisterEscort() {
       
       // Check email uniqueness before proceeding
       if (formData.email && !errors.find(e => e.field === 'email')) {
-        setCheckingEmail(true)
         const emailCheck = await checkEmailUniqueness(formData.email)
         if (!emailCheck.isUnique) {
           errors.push({
@@ -73,7 +70,6 @@ export default function RegisterEscort() {
             message: emailCheck.message ?? 'This email is already registered',
           })
         }
-        setCheckingEmail(false)
       }
     }
 
@@ -270,7 +266,7 @@ export default function RegisterEscort() {
             <Combobox
               label="Gender"
               options={['male', 'female', 'non-binary', 'other']}
-              value={formData.gender}
+              value={formData.gender ?? ''}
               onChange={(value) => {
                 updateFormData('gender', value)
                 if (fieldErrors.gender) {
@@ -340,7 +336,7 @@ export default function RegisterEscort() {
             <Combobox
               label="Location (City)"
               options={SOUTH_AFRICAN_CITIES}
-              value={formData.location}
+              value={formData.location ?? ''}
               onChange={(value) => {
                 updateFormData('location', value)
                 if (fieldErrors.location) {
@@ -515,7 +511,7 @@ export default function RegisterEscort() {
           <CardContent>
             <div className="mb-6">
               <div className="flex items-center justify-between mb-2">
-                {STEPS.map((step, index) => (
+                {STEPS.map((_step, index) => (
                   <div key={index} className="flex items-center flex-1">
                     <div
                       className={`flex items-center justify-center w-8 h-8 rounded-full ${

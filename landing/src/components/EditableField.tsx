@@ -111,10 +111,10 @@ export function EditableField({
               className="flex-1"
               placeholder={placeholder}
             />
-          ) : type === 'multiselect' && Array.isArray(options) ? (
+          ) : type === 'multiselect' && Array.isArray(options) && typeof options[0] === 'string' ? (
             <div className="flex-1">
               <MultiSelect
-                options={options}
+                options={options as string[]}
                 value={Array.isArray(editValue) ? editValue : []}
                 onChange={(value) => setEditValue(value)}
                 placeholder={placeholder}

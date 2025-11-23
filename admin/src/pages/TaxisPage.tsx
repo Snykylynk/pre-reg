@@ -94,6 +94,7 @@ export function TaxisPage() {
           onChange={(e) => setFilterVerified(e.target.value as 'all' | 'verified' | 'unverified')}
           className="px-4 py-2.5 border border-input rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
           title="Filter by verification status"
+          aria-label="Filter by verification status"
         >
           <option value="all">All Taxis</option>
           <option value="verified">Verified Only</option>

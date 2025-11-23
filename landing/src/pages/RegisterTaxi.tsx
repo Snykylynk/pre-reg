@@ -4,8 +4,6 @@ import { supabase } from '@/lib/supabase'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Textarea } from '@/components/ui/textarea'
-import { Select } from '@/components/ui/select'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { MultiSelect } from '@/components/MultiSelect'
 import { Combobox } from '@/components/Combobox'
@@ -637,7 +635,7 @@ export default function RegisterTaxi() {
           <CardContent>
             <div className="mb-6">
               <div className="flex items-center justify-between mb-2">
-                {STEPS.map((step, index) => (
+                {STEPS.map((_step, index) => (
                   <div key={index} className="flex items-center flex-1">
                     <div
                       className={`flex items-center justify-center w-8 h-8 rounded-full ${
