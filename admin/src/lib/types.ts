@@ -38,7 +38,18 @@ export interface TaxiOwnerProfile {
   service_areas?: string[]
   hourly_rate?: number
   availability?: string
+  profile_image_url?: string
   verified?: boolean
+  created_at?: string
+  updated_at?: string
+}
+
+export interface ProfilePicture {
+  id: string
+  profile_id: string
+  profile_type: 'escort' | 'taxi'
+  image_url: string
+  display_order: number
   created_at?: string
   updated_at?: string
 }

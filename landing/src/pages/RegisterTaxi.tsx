@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
 import { Button } from '@/components/ui/button'
@@ -7,17 +7,19 @@ import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { MultiSelect } from '@/components/MultiSelect'
 import { Combobox } from '@/components/Combobox'
-import { ArrowLeft, ArrowRight, Check } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Check, X, Plus } from 'lucide-react'
 import type { TaxiOwnerProfile } from '@/lib/types'
 import { validateTaxiStep1, validateTaxiStep2, validateTaxiStep3, type ValidationError } from '@/lib/validation'
 import { VEHICLE_MAKES, VEHICLE_YEARS, SERVICE_AREAS, AVAILABILITY_OPTIONS } from '@/lib/constants'
 import { checkEmailUniqueness } from '@/lib/emailCheck'
+import { ImageUpload } from '@/components/ImageUpload'
 
 const STEPS = [
   'Personal Information',
   'Contact Details',
   'Vehicle Information',
   'Business Details',
+  'Pictures',
   'Review & Submit'
 ]
 
@@ -51,6 +53,22 @@ export default function RegisterTaxi() {
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [availabilityDays, setAvailabilityDays] = useState<string[]>([])
+  const [profileImageUrl, setProfileImageUrl] = useState<string | null>(null)
+  const [galleryImages, setGalleryImages] = useState<Array<{ id?: string; image_url: string; display_order: number }>>([])
+  const [userId, setUserId] = useState<string | null>(null)
+
+  // Get user ID when moving to pictures step or when user is available
+  useEffect(() => {
+    const getUser = async () => {
+      if (currentStep === 4 || !userId) {
+        const { data: { user } } = await supabase.auth.getUser()
+        if (user) {
+          setUserId(user.id)
+        }
+      }
+    }
+    getUser()
+  }, [currentStep, userId])
 
   const updateFormData = (field: keyof TaxiOwnerProfile, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }))
@@ -126,6 +144,8 @@ export default function RegisterTaxi() {
         throw new Error('Failed to create user account')
       }
 
+      setUserId(authData.user.id)
+
       // Wait a moment to ensure the user is fully committed to auth.users
       await new Promise(resolve => setTimeout(resolve, 500))
 
@@ -135,9 +155,10 @@ export default function RegisterTaxi() {
       let functionError = null
       let retries = 0
       const maxRetries = 3
+      let profileId: string | null = null
 
       while (retries < maxRetries) {
-        const { error: error } = await supabase.rpc('create_taxi_owner_profile', {
+        const { data: profileData, error: error } = await supabase.rpc('create_taxi_owner_profile', {
           p_user_id: authData.user.id,
           p_first_name: formData.first_name,
           p_last_name: formData.last_name,
@@ -160,7 +181,10 @@ export default function RegisterTaxi() {
         functionError = error
 
         // If no error, break out of retry loop
-        if (!functionError) break
+        if (!functionError) {
+          profileId = profileData
+          break
+        }
 
         // If it's a foreign key error, wait and retry
         if (functionError.message?.includes('foreign key') || 
@@ -176,6 +200,50 @@ export default function RegisterTaxi() {
 
         // If it's not a foreign key error or we've exhausted retries, throw
         throw functionError
+      }
+
+      if (!profileId) {
+        // Get profile ID from database
+        const { data: profile, error: fetchError } = await supabase
+          .from('taxi_owner_profiles')
+          .select('id')
+          .eq('user_id', authData.user.id)
+          .single()
+        
+        if (fetchError) throw fetchError
+        profileId = profile.id
+      }
+
+      // Update profile with profile image if provided
+      if (profileImageUrl && profileId) {
+        const { error: updateError } = await supabase
+          .from('taxi_owner_profiles')
+          .update({ profile_image_url: profileImageUrl })
+          .eq('id', profileId)
+        
+        if (updateError) {
+          console.error('Error updating profile image:', updateError)
+          // Don't throw - continue with registration
+        }
+      }
+
+      // Save gallery images if provided
+      if (galleryImages.length > 0 && profileId) {
+        const galleryData = galleryImages.map((img, index) => ({
+          profile_id: profileId,
+          profile_type: 'taxi' as const,
+          image_url: img.image_url,
+          display_order: index,
+        }))
+
+        const { error: galleryError } = await supabase
+          .from('profile_pictures')
+          .insert(galleryData)
+
+        if (galleryError) {
+          console.error('Error saving gallery images:', galleryError)
+          // Don't throw - continue with registration
+        }
       }
 
       // Try to sign in if session is available
@@ -566,6 +634,92 @@ export default function RegisterTaxi() {
 
       case 4:
         return (
+          <div className="space-y-6">
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Add a profile picture and gallery images of your vehicle. You can skip this step and add pictures later from your profile.
+              </p>
+              {userId && (
+                <ImageUpload
+                  currentImageUrl={profileImageUrl}
+                  onUpload={async (url) => {
+                    setProfileImageUrl(url)
+                  }}
+                  label="Profile Picture"
+                  bucket="profile-pictures"
+                  userId={userId}
+                />
+              )}
+            </div>
+            <div className="space-y-4">
+              <label className="text-sm font-medium">Gallery Pictures ({galleryImages.length}/5)</label>
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4">
+                {galleryImages.map((img, index) => (
+                  <div key={index} className="relative">
+                    <img
+                      src={img.image_url}
+                      alt={`Gallery ${index + 1}`}
+                      className="w-full h-32 object-cover rounded-lg border border-border"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setGalleryImages(prev => prev.filter((_, i) => i !== index))}
+                      className="absolute top-2 right-2 bg-destructive text-destructive-foreground rounded-full p-1 hover:bg-destructive/90"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                ))}
+                {galleryImages.length < 5 && (
+                  <label className="cursor-pointer">
+                    <div className="w-full h-32 border-2 border-dashed border-muted-foreground/25 rounded-lg flex items-center justify-center hover:border-muted-foreground/50 transition-colors">
+                      <Plus className="w-8 h-8 text-muted-foreground/50" />
+                    </div>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      className="hidden"
+                      onChange={async (e) => {
+                        const files = Array.from(e.target.files ?? [])
+                        if (files.length === 0) return
+                        if (galleryImages.length + files.length > 5) {
+                          alert(`You can only upload up to 5 images. You currently have ${galleryImages.length} image(s).`)
+                          return
+                        }
+                        if (!userId) {
+                          alert('Please wait while we set up your account...')
+                          return
+                        }
+                        for (const file of files) {
+                          if (galleryImages.length >= 5) break
+                          try {
+                            const fileExt = file.name.split('.').pop()
+                            const fileName = `${userId}-${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`
+                            const filePath = `${userId}/${fileName}`
+                            const { error: uploadError } = await supabase.storage
+                              .from('gallery-pictures')
+                              .upload(filePath, file, { cacheControl: '3600', upsert: false })
+                            if (uploadError) throw uploadError
+                            const { data: { publicUrl } } = supabase.storage
+                              .from('gallery-pictures')
+                              .getPublicUrl(filePath)
+                            setGalleryImages(prev => [...prev, { image_url: publicUrl, display_order: prev.length }])
+                          } catch (error: any) {
+                            alert(error.message ?? 'Failed to upload image')
+                          }
+                        }
+                      }}
+                    />
+                  </label>
+                )}
+              </div>
+            </div>
+          </div>
+        )
+
+      case 5:
+        return (
           <div className="space-y-4">
             <div className="space-y-2">
               <h3 className="font-semibold">Personal Information</h3>
@@ -602,6 +756,15 @@ export default function RegisterTaxi() {
               </p>
               <p className="text-sm text-muted-foreground">
                 Availability: {availabilityDays.length > 0 ? availabilityDays.join(', ') : 'Not specified'}
+              </p>
+            </div>
+            <div className="space-y-2">
+              <h3 className="font-semibold">Pictures</h3>
+              <p className="text-sm text-muted-foreground">
+                Profile Picture: {profileImageUrl ? 'Added' : 'Not added'}
+              </p>
+              <p className="text-sm text-muted-foreground">
+                Gallery Pictures: {galleryImages.length} / 5
               </p>
             </div>
             {error && (

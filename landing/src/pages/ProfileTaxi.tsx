@@ -5,13 +5,17 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { EditableField } from '@/components/EditableField'
 import { LogOut } from 'lucide-react'
-import type { TaxiOwnerProfile } from '@/lib/types'
+import type { TaxiOwnerProfile, ProfilePicture } from '@/lib/types'
 import { VEHICLE_MAKES, VEHICLE_YEARS, SERVICE_AREAS, AVAILABILITY_OPTIONS } from '@/lib/constants'
+import { ImageUpload } from '@/components/ImageUpload'
+import { GalleryUpload } from '@/components/GalleryUpload'
 
 export default function ProfileTaxi() {
   const [profile, setProfile] = useState<TaxiOwnerProfile | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [galleryImages, setGalleryImages] = useState<ProfilePicture[]>([])
+  const [userId, setUserId] = useState<string | null>(null)
   const navigate = useNavigate()
 
   useEffect(() => {
@@ -26,6 +30,8 @@ export default function ProfileTaxi() {
         return
       }
 
+      setUserId(user.id)
+
       const { data, error: fetchError } = await supabase
         .from('taxi_owner_profiles')
         .select('*')
@@ -34,6 +40,20 @@ export default function ProfileTaxi() {
 
       if (fetchError) throw fetchError
       setProfile(data)
+
+      // Load gallery images
+      if (data.id) {
+        const { data: galleryData, error: galleryError } = await supabase
+          .from('profile_pictures')
+          .select('*')
+          .eq('profile_id', data.id)
+          .eq('profile_type', 'taxi')
+          .order('display_order')
+
+        if (!galleryError && galleryData) {
+          setGalleryImages(galleryData)
+        }
+      }
     } catch (err: any) {
       setError(err.message ?? 'Failed to load profile')
     } finally {
@@ -233,6 +253,37 @@ export default function ProfileTaxi() {
                 await updateField('availability', days.length > 0 ? days.join(', ') : null)
               }}
             />
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Pictures</CardTitle>
+            <CardDescription>Manage your profile picture and vehicle gallery</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            {userId && (
+              <ImageUpload
+                currentImageUrl={profile.profile_image_url}
+                onUpload={async (url) => {
+                  await updateField('profile_image_url', url)
+                }}
+                label="Profile Picture"
+                bucket="profile-pictures"
+                userId={userId}
+              />
+            )}
+            {profile.id && (
+              <GalleryUpload
+                profileId={profile.id}
+                profileType="taxi"
+                currentImages={galleryImages}
+                onUpdate={async () => {
+                  await loadProfile()
+                }}
+                maxImages={5}
+              />
+            )}
           </CardContent>
         </Card>
       </div>

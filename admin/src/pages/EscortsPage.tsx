@@ -1,10 +1,64 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
-import type { EscortProfile } from '@/lib/types'
+import type { EscortProfile, ProfilePicture } from '@/lib/types'
 import { Button } from '@/components/ui/button'
 import { Modal } from '@/components/ui/modal'
 import { CheckCircle, XCircle, Search, Users } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
+import { ImageCarousel } from '@/components/ImageCarousel'
+
+const loadGalleryImages = async (profileId: string, profileType: 'escort' | 'taxi') => {
+  try {
+    // First, check if we're admin
+    const { data: { user } } = await supabase.auth.getUser()
+    console.log('Current user:', user?.id, 'Admin?', user?.app_metadata?.is_admin)
+    
+    // Try using the admin function first (bypasses RLS)
+    const { data: functionData, error: functionError } = await supabase.rpc('get_profile_pictures_admin', {
+      p_profile_id: profileId,
+      p_profile_type: profileType,
+    })
+
+    if (functionError) {
+      console.warn('Admin function error (will try direct query):', functionError)
+      console.warn('Function error code:', functionError.code)
+      console.warn('Function error message:', functionError.message)
+    } else if (functionData) {
+      console.log(`✅ Loaded ${functionData.length} gallery images via admin function`)
+      if (functionData.length > 0) {
+        console.log('Gallery image URLs:', functionData.map((img: any) => img.image_url))
+      }
+      return functionData
+    }
+
+    // Fallback to direct query
+    console.log('⚠️ Admin function not available or returned no data, trying direct query...')
+    const { data, error } = await supabase
+      .from('profile_pictures')
+      .select('*')
+      .eq('profile_id', profileId)
+      .eq('profile_type', profileType)
+      .order('display_order', { ascending: true })
+    
+    if (error) {
+      console.error('Error loading gallery images:', error)
+      console.error('Error code:', error.code)
+      console.error('Error message:', error.message)
+      console.error('Error details:', error.details)
+      console.error('Error hint:', error.hint)
+      return []
+    }
+    
+    console.log(`Loaded ${data?.length ?? 0} gallery images for ${profileType} profile ${profileId}`)
+    if (data && data.length > 0) {
+      console.log('Gallery image URLs:', data.map(img => img.image_url))
+    }
+    return data ?? []
+  } catch (err) {
+    console.error('Exception loading gallery:', err)
+    return []
+  }
+}
 
 export function EscortsPage() {
   const [escorts, setEscorts] = useState<EscortProfile[]>([])
@@ -12,10 +66,20 @@ export function EscortsPage() {
   const [searchTerm, setSearchTerm] = useState('')
   const [filterVerified, setFilterVerified] = useState<'all' | 'verified' | 'unverified'>('all')
   const [selectedEscort, setSelectedEscort] = useState<EscortProfile | null>(null)
+  const [galleryImages, setGalleryImages] = useState<ProfilePicture[]>([])
 
   useEffect(() => {
     fetchEscorts()
   }, [])
+
+  // Load gallery images when escort is selected
+  useEffect(() => {
+    if (selectedEscort?.id) {
+      loadGalleryImages(selectedEscort.id, 'escort').then(setGalleryImages)
+    } else {
+      setGalleryImages([])
+    }
+  }, [selectedEscort?.id])
 
   const fetchEscorts = async () => {
     try {
@@ -115,13 +179,28 @@ export function EscortsPage() {
             {filteredEscorts.map((escort) => (
               <div
                 key={escort.id}
-                onClick={() => setSelectedEscort(escort)}
+                onClick={() => {
+                  setSelectedEscort(escort)
+                }}
                 className="p-4 hover:bg-accent/50 cursor-pointer transition-colors flex items-center justify-between gap-4"
               >
-                <div className="flex-1 grid grid-cols-1 md:grid-cols-3 gap-4 min-w-0">
-                  <div className="min-w-0">
-                    <p className="font-medium truncate">{escort.first_name} {escort.last_name}</p>
-                  </div>
+                <div className="flex-1 grid grid-cols-1 md:grid-cols-3 gap-4 min-w-0 items-center">
+                  {escort.profile_image_url ? (
+                    <div className="flex items-center gap-3 min-w-0">
+                      <img
+                        src={escort.profile_image_url}
+                        alt={`${escort.first_name} ${escort.last_name}`}
+                        className="w-12 h-12 rounded-full object-cover border border-border flex-shrink-0"
+                      />
+                      <div className="min-w-0">
+                        <p className="font-medium truncate">{escort.first_name} {escort.last_name}</p>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="min-w-0">
+                      <p className="font-medium truncate">{escort.first_name} {escort.last_name}</p>
+                    </div>
+                  )}
                   <div className="min-w-0">
                     <p className="text-sm text-muted-foreground truncate">{escort.email}</p>
                   </div>
@@ -159,11 +238,97 @@ export function EscortsPage() {
       {selectedEscort && (
         <Modal
           isOpen={!!selectedEscort}
-          onClose={() => setSelectedEscort(null)}
-          title={`${selectedEscort.first_name} ${selectedEscort.last_name} - Escort Details`}
+          onClose={() => {
+            setSelectedEscort(null)
+            setGalleryImages([])
+          }}
+          title=""
         >
-          <div className="space-y-6">
-            <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-0">
+            {/* Profile Header - Social Media Style */}
+            <div className="relative">
+              {/* Cover/Header Area */}
+              <div className="relative h-48 bg-gradient-to-r from-primary/20 to-primary/5 rounded-t-lg overflow-hidden">
+                {selectedEscort.profile_image_url ? (
+                  <img
+                    src={selectedEscort.profile_image_url}
+                    alt="Cover"
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <div className="w-full h-full bg-gradient-to-br from-primary/30 to-primary/10" />
+                )}
+              </div>
+              
+              {/* Profile Picture Avatar */}
+              <div className="absolute -bottom-16 left-6">
+                <div className="relative">
+                  <div className="w-32 h-32 rounded-full border-4 border-background bg-background shadow-lg overflow-hidden">
+                    {selectedEscort.profile_image_url ? (
+                      <img
+                        src={selectedEscort.profile_image_url}
+                        alt={`${selectedEscort.first_name} ${selectedEscort.last_name}`}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-full h-full bg-muted flex items-center justify-center">
+                        <Users className="w-12 h-12 text-muted-foreground" />
+                      </div>
+                    )}
+                  </div>
+                  {selectedEscort.verified && (
+                    <div className="absolute -bottom-1 -right-1 bg-green-600 rounded-full p-1.5 border-4 border-background">
+                      <CheckCircle className="w-5 h-5 text-white" />
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Profile Info Section */}
+            <div className="pt-20 px-6 pb-6">
+              <div className="flex items-start justify-between mb-6">
+                <div>
+                  <h2 className="text-2xl font-bold text-left">
+                    {selectedEscort.first_name} {selectedEscort.last_name}
+                  </h2>
+                  <p className="text-muted-foreground mt-1 text-left">{selectedEscort.location}</p>
+                </div>
+                <Button
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    toggleVerification(e, selectedEscort.id!, selectedEscort.verified ?? false)
+                  }}
+                  variant={selectedEscort.verified ? "outline" : "default"}
+                  className="whitespace-nowrap"
+                >
+                  {selectedEscort.verified ? (
+                    <>
+                      <CheckCircle className="w-4 h-4 mr-2" />
+                      Verified
+                    </>
+                  ) : (
+                    <>
+                      <XCircle className="w-4 h-4 mr-2" />
+                      Verify
+                    </>
+                  )}
+                </Button>
+              </div>
+
+              {/* Gallery Images Carousel */}
+              <ImageCarousel images={galleryImages} title="Gallery" />
+
+              {/* Bio */}
+              {selectedEscort.bio && (
+                <div className="mb-6">
+                  <h3 className="text-lg font-semibold mb-2 text-left">About</h3>
+                  <p className="text-sm leading-relaxed text-muted-foreground text-left">{selectedEscort.bio}</p>
+                </div>
+              )}
+
+              {/* Details Grid */}
+              <div className="grid grid-cols-2 gap-4 mb-6 text-left">
               <div>
                 <p className="text-sm text-muted-foreground mb-1">First Name</p>
                 <p className="font-medium">{selectedEscort.first_name}</p>
@@ -226,52 +391,43 @@ export function EscortsPage() {
                   )}
                 </p>
               </div>
-            </div>
-            {selectedEscort.languages && selectedEscort.languages.length > 0 && (
-              <div>
-                <p className="text-sm text-muted-foreground mb-2">Languages</p>
-                <div className="flex flex-wrap gap-2">
-                  {selectedEscort.languages.map((lang, idx) => (
-                    <span key={idx} className="px-2 py-1 bg-muted rounded text-sm">
-                      {lang}
-                    </span>
-                  ))}
+              </div>
+
+              {/* Tags Section */}
+              {((selectedEscort.languages?.length ?? 0) > 0 || (selectedEscort.services?.length ?? 0) > 0) && (
+                <div className="space-y-4 text-left">
+                  {selectedEscort.languages && selectedEscort.languages.length > 0 && (
+                    <div>
+                      <h3 className="text-sm font-semibold mb-2 text-muted-foreground">Languages</h3>
+                      <div className="flex flex-wrap gap-2">
+                        {selectedEscort.languages.map((lang, idx) => (
+                          <span
+                            key={idx}
+                            className="px-3 py-1.5 bg-primary/10 text-primary rounded-full text-sm font-medium"
+                          >
+                            {lang}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {selectedEscort.services && selectedEscort.services.length > 0 && (
+                    <div>
+                      <h3 className="text-sm font-semibold mb-2 text-muted-foreground">Services</h3>
+                      <div className="flex flex-wrap gap-2">
+                        {selectedEscort.services.map((service, idx) => (
+                          <span
+                            key={idx}
+                            className="px-3 py-1.5 bg-secondary text-secondary-foreground rounded-full text-sm font-medium"
+                          >
+                            {service}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
-              </div>
-            )}
-            {selectedEscort.services && selectedEscort.services.length > 0 && (
-              <div>
-                <p className="text-sm text-muted-foreground mb-2">Services</p>
-                <div className="flex flex-wrap gap-2">
-                  {selectedEscort.services.map((service, idx) => (
-                    <span key={idx} className="px-2 py-1 bg-muted rounded text-sm">
-                      {service}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}
-            {selectedEscort.bio && (
-              <div>
-                <p className="text-sm text-muted-foreground mb-2">Bio</p>
-                <p className="text-sm leading-relaxed">{selectedEscort.bio}</p>
-              </div>
-            )}
-            <div className="flex justify-end gap-2 pt-4 border-t border-border">
-              <Button
-                variant="outline"
-                onClick={() => setSelectedEscort(null)}
-              >
-                Close
-              </Button>
-              <Button
-                onClick={(e) => {
-                  e.stopPropagation()
-                  toggleVerification(e, selectedEscort.id!, selectedEscort.verified ?? false)
-                }}
-              >
-                {selectedEscort.verified ? 'Unverify' : 'Verify'}
-              </Button>
+              )}
             </div>
           </div>
         </Modal>

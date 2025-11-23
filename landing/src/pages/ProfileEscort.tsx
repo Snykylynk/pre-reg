@@ -5,13 +5,17 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { EditableField } from '@/components/EditableField'
 import { LogOut } from 'lucide-react'
-import type { EscortProfile } from '@/lib/types'
+import type { EscortProfile, ProfilePicture } from '@/lib/types'
 import { LANGUAGES, ESCORT_SERVICES, AVAILABILITY_OPTIONS, SOUTH_AFRICAN_CITIES } from '@/lib/constants'
+import { ImageUpload } from '@/components/ImageUpload'
+import { GalleryUpload } from '@/components/GalleryUpload'
 
 export default function ProfileEscort() {
   const [profile, setProfile] = useState<EscortProfile | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [galleryImages, setGalleryImages] = useState<ProfilePicture[]>([])
+  const [userId, setUserId] = useState<string | null>(null)
   const navigate = useNavigate()
 
   useEffect(() => {
@@ -26,6 +30,8 @@ export default function ProfileEscort() {
         return
       }
 
+      setUserId(user.id)
+
       const { data, error: fetchError } = await supabase
         .from('escort_profiles')
         .select('*')
@@ -34,6 +40,20 @@ export default function ProfileEscort() {
 
       if (fetchError) throw fetchError
       setProfile(data)
+
+      // Load gallery images
+      if (data.id) {
+        const { data: galleryData, error: galleryError } = await supabase
+          .from('profile_pictures')
+          .select('*')
+          .eq('profile_id', data.id)
+          .eq('profile_type', 'escort')
+          .order('display_order')
+
+        if (!galleryError && galleryData) {
+          setGalleryImages(galleryData)
+        }
+      }
     } catch (err: any) {
       setError(err.message ?? 'Failed to load profile')
     } finally {
@@ -213,6 +233,37 @@ export default function ProfileEscort() {
               rows={4}
               onSave={(value) => updateField('bio', value)}
             />
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Pictures</CardTitle>
+            <CardDescription>Manage your profile picture and gallery</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            {userId && (
+              <ImageUpload
+                currentImageUrl={profile.profile_image_url}
+                onUpload={async (url) => {
+                  await updateField('profile_image_url', url)
+                }}
+                label="Profile Picture"
+                bucket="profile-pictures"
+                userId={userId}
+              />
+            )}
+            {profile.id && (
+              <GalleryUpload
+                profileId={profile.id}
+                profileType="escort"
+                currentImages={galleryImages}
+                onUpdate={async () => {
+                  await loadProfile()
+                }}
+                maxImages={5}
+              />
+            )}
           </CardContent>
         </Card>
       </div>

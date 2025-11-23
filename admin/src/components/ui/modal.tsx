@@ -22,9 +22,10 @@ export function Modal({ isOpen, onClose, title, children }: ModalProps) {
         aria-hidden="true"
       />
       <div
-        className="relative bg-card border border-border rounded-lg shadow-lg max-w-2xl w-full mx-4 max-h-[90vh] overflow-hidden flex flex-col"
+        className="relative bg-card border border-border rounded-lg shadow-xl max-w-3xl w-full mx-4 max-h-[90vh] overflow-hidden flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
+        {title && (
         <div className="flex items-center justify-between p-6 border-b border-border">
           <h2 className="text-xl font-semibold">{title}</h2>
           <Button
@@ -36,7 +37,20 @@ export function Modal({ isOpen, onClose, title, children }: ModalProps) {
             <X className="h-4 w-4" />
           </Button>
         </div>
-        <div className="overflow-y-auto p-6 flex-1">
+        )}
+        {!title && (
+          <div className="absolute top-4 right-4 z-10">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={onClose}
+              className="h-8 w-8 bg-background/80 backdrop-blur-sm hover:bg-background"
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+        )}
+        <div className="overflow-y-auto flex-1">
           {children}
         </div>
       </div>
