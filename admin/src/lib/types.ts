@@ -15,6 +15,7 @@ export interface EscortProfile {
   bio?: string
   profile_image_url?: string
   verified?: boolean
+  banned?: boolean
   created_at?: string
   updated_at?: string
 }
@@ -40,6 +41,7 @@ export interface TaxiOwnerProfile {
   availability?: string
   profile_image_url?: string
   verified?: boolean
+  banned?: boolean
   created_at?: string
   updated_at?: string
 }

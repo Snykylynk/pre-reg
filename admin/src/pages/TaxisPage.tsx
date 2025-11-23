@@ -3,7 +3,7 @@ import { supabase } from '@/lib/supabase'
 import type { TaxiOwnerProfile, ProfilePicture } from '@/lib/types'
 import { Button } from '@/components/ui/button'
 import { Modal } from '@/components/ui/modal'
-import { CheckCircle, XCircle, Search, Car } from 'lucide-react'
+import { CheckCircle, XCircle, Search, Car, Ban, Edit, Trash2, ShieldX } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { ImageCarousel } from '@/components/ImageCarousel'
 
@@ -67,6 +67,9 @@ export function TaxisPage() {
   const [filterVerified, setFilterVerified] = useState<'all' | 'verified' | 'unverified'>('all')
   const [selectedTaxi, setSelectedTaxi] = useState<TaxiOwnerProfile | null>(null)
   const [galleryImages, setGalleryImages] = useState<ProfilePicture[]>([])
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false)
+  const [editingTaxi, setEditingTaxi] = useState<TaxiOwnerProfile | null>(null)
+  const [editFormData, setEditFormData] = useState<Partial<TaxiOwnerProfile>>({})
 
   useEffect(() => {
     fetchTaxis()
@@ -113,6 +116,127 @@ export function TaxisPage() {
     } catch (error) {
       console.error('Error updating verification:', error)
       alert('Failed to update verification status')
+    }
+  }
+
+  const toggleBan = async (e: React.MouseEvent, profileId: string, userId: string, currentStatus: boolean) => {
+    e.stopPropagation()
+    if (!confirm(`Are you sure you want to ${currentStatus ? 'unban' : 'ban'} this user?`)) {
+      return
+    }
+
+    try {
+      const newBannedStatus = !currentStatus
+      
+      // Update profile banned status
+      const { error: profileError } = await supabase
+        .from('taxi_owner_profiles')
+        .update({ banned: newBannedStatus })
+        .eq('id', profileId)
+
+      if (profileError) throw profileError
+
+      // Also update auth user metadata to ban/unban
+      const { error: authError } = await supabase.auth.admin.updateUserById(userId, {
+        user_metadata: { banned: newBannedStatus }
+      })
+
+      if (authError) {
+        console.warn('Could not update auth user metadata:', authError)
+        // Continue anyway as profile update succeeded
+      }
+
+      await fetchTaxis()
+      if (selectedTaxi?.id === profileId) {
+        setSelectedTaxi({ ...selectedTaxi, banned: newBannedStatus })
+      }
+    } catch (error) {
+      console.error('Error updating ban status:', error)
+      alert('Failed to update ban status')
+    }
+  }
+
+  const handleEdit = (e: React.MouseEvent, taxi: TaxiOwnerProfile) => {
+    e.stopPropagation()
+    setEditingTaxi(taxi)
+    setEditFormData({
+      first_name: taxi.first_name,
+      last_name: taxi.last_name,
+      email: taxi.email,
+      phone: taxi.phone,
+      business_name: taxi.business_name,
+      license_number: taxi.license_number,
+      vehicle_make: taxi.vehicle_make,
+      vehicle_model: taxi.vehicle_model,
+      vehicle_year: taxi.vehicle_year,
+      vehicle_color: taxi.vehicle_color,
+      vehicle_registration: taxi.vehicle_registration,
+      insurance_provider: taxi.insurance_provider,
+      insurance_policy_number: taxi.insurance_policy_number,
+      service_areas: taxi.service_areas,
+      hourly_rate: taxi.hourly_rate,
+      availability: taxi.availability,
+      profile_image_url: taxi.profile_image_url,
+    })
+    setIsEditModalOpen(true)
+  }
+
+  const handleSaveEdit = async () => {
+    if (!editingTaxi?.id) return
+
+    try {
+      const { error } = await supabase
+        .from('taxi_owner_profiles')
+        .update({
+          ...editFormData,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', editingTaxi.id)
+
+      if (error) throw error
+
+      await fetchTaxis()
+      if (selectedTaxi?.id === editingTaxi.id) {
+        setSelectedTaxi({ ...selectedTaxi, ...editFormData })
+      }
+      setIsEditModalOpen(false)
+      setEditingTaxi(null)
+      setEditFormData({})
+    } catch (error) {
+      console.error('Error updating taxi:', error)
+      alert('Failed to update taxi profile')
+    }
+  }
+
+  const handleDelete = async (e: React.MouseEvent, profileId: string, userId: string) => {
+    e.stopPropagation()
+    if (!confirm('Are you sure you want to delete this profile? This action cannot be undone.')) {
+      return
+    }
+
+    try {
+      // Delete the profile (this will cascade delete related data due to ON DELETE CASCADE)
+      const { error: profileError } = await supabase
+        .from('taxi_owner_profiles')
+        .delete()
+        .eq('id', profileId)
+
+      if (profileError) throw profileError
+
+      // Optionally delete the auth user as well
+      const { error: authError } = await supabase.auth.admin.deleteUser(userId)
+      if (authError) {
+        console.warn('Could not delete auth user:', authError)
+        // Continue anyway as profile deletion succeeded
+      }
+
+      await fetchTaxis()
+      if (selectedTaxi?.id === profileId) {
+        setSelectedTaxi(null)
+      }
+    } catch (error) {
+      console.error('Error deleting taxi:', error)
+      alert('Failed to delete taxi profile')
     }
   }
 
@@ -191,7 +315,7 @@ export function TaxisPage() {
                       <img
                         src={taxi.profile_image_url}
                         alt={`${taxi.first_name} ${taxi.last_name}`}
-                        className="w-12 h-12 rounded-full object-cover border border-border flex-shrink-0"
+                        className="w-12 h-12 rounded-full object-cover border border-border shrink-0"
                       />
                       <div className="min-w-0">
                         <p className="font-medium truncate">{taxi.first_name} {taxi.last_name}</p>
@@ -209,7 +333,7 @@ export function TaxisPage() {
                     <p className="text-sm truncate">{taxi.phone}</p>
                   </div>
                 </div>
-                <div className="flex items-center gap-2 flex-shrink-0">
+                <div className="flex items-center gap-2 shrink-0">
                   {taxi.verified ? (
                     <span className="flex items-center gap-1.5 text-sm font-medium text-green-600 bg-green-600/10 px-2.5 py-1 rounded-full">
                       <CheckCircle className="h-4 w-4" />
@@ -221,6 +345,12 @@ export function TaxisPage() {
                       Unverified
                     </span>
                   )}
+                  {taxi.banned && (
+                    <span className="flex items-center gap-1.5 text-sm font-medium text-red-600 bg-red-600/10 px-2.5 py-1 rounded-full">
+                      <Ban className="h-4 w-4" />
+                      Banned
+                    </span>
+                  )}
                   <Button
                     variant="outline"
                     size="sm"
@@ -228,6 +358,33 @@ export function TaxisPage() {
                     className="whitespace-nowrap"
                   >
                     {taxi.verified ? 'Unverify' : 'Verify'}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={(e) => toggleBan(e, taxi.id!, taxi.user_id, taxi.banned ?? false)}
+                    className="whitespace-nowrap"
+                    title={taxi.banned ? 'Unban user' : 'Ban user'}
+                  >
+                    {taxi.banned ? <ShieldX className="h-4 w-4" /> : <Ban className="h-4 w-4" />}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={(e) => handleEdit(e, taxi)}
+                    className="whitespace-nowrap"
+                    title="Edit profile"
+                  >
+                    <Edit className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={(e) => handleDelete(e, taxi.id!, taxi.user_id)}
+                    className="whitespace-nowrap text-red-600 hover:text-red-700 hover:bg-red-50"
+                    title="Delete profile"
+                  >
+                    <Trash2 className="h-4 w-4" />
                   </Button>
                 </div>
               </div>
@@ -302,26 +459,73 @@ export function TaxisPage() {
                     </p>
                   )}
                 </div>
-                <Button
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    toggleVerification(e, selectedTaxi.id!, selectedTaxi.verified ?? false)
-                  }}
-                  variant={selectedTaxi.verified ? "outline" : "default"}
-                  className="whitespace-nowrap"
-                >
-                  {selectedTaxi.verified ? (
-                    <>
-                      <CheckCircle className="w-4 h-4 mr-2" />
-                      Verified
-                    </>
-                  ) : (
-                    <>
-                      <XCircle className="w-4 h-4 mr-2" />
-                      Verify
-                    </>
-                  )}
-                </Button>
+                <div className="flex items-center gap-2">
+                  <Button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      toggleVerification(e, selectedTaxi.id!, selectedTaxi.verified ?? false)
+                    }}
+                    variant={selectedTaxi.verified ? "outline" : "default"}
+                    className="whitespace-nowrap"
+                  >
+                    {selectedTaxi.verified ? (
+                      <>
+                        <CheckCircle className="w-4 h-4 mr-2" />
+                        Verified
+                      </>
+                    ) : (
+                      <>
+                        <XCircle className="w-4 h-4 mr-2" />
+                        Verify
+                      </>
+                    )}
+                  </Button>
+                  <Button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      toggleBan(e, selectedTaxi.id!, selectedTaxi.user_id, selectedTaxi.banned ?? false)
+                    }}
+                    variant={selectedTaxi.banned ? "default" : "outline"}
+                    className="whitespace-nowrap"
+                    title={selectedTaxi.banned ? 'Unban user' : 'Ban user'}
+                  >
+                    {selectedTaxi.banned ? (
+                      <>
+                        <ShieldX className="w-4 h-4 mr-2" />
+                        Unban
+                      </>
+                    ) : (
+                      <>
+                        <Ban className="w-4 h-4 mr-2" />
+                        Ban
+                      </>
+                    )}
+                  </Button>
+                  <Button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      handleEdit(e, selectedTaxi)
+                    }}
+                    variant="outline"
+                    className="whitespace-nowrap"
+                    title="Edit profile"
+                  >
+                    <Edit className="w-4 h-4 mr-2" />
+                    Edit
+                  </Button>
+                  <Button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      handleDelete(e, selectedTaxi.id!, selectedTaxi.user_id)
+                    }}
+                    variant="outline"
+                    className="whitespace-nowrap text-red-600 hover:text-red-700 hover:bg-red-50"
+                    title="Delete profile"
+                  >
+                    <Trash2 className="w-4 h-4 mr-2" />
+                    Delete
+                  </Button>
+                </div>
               </div>
 
               {/* Gallery Images Carousel */}
@@ -445,6 +649,194 @@ export function TaxisPage() {
                   </div>
                 </div>
               )}
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* Edit Modal */}
+      {isEditModalOpen && editingTaxi && (
+        <Modal
+          isOpen={isEditModalOpen}
+          onClose={() => {
+            setIsEditModalOpen(false)
+            setEditingTaxi(null)
+            setEditFormData({})
+          }}
+          title="Edit Taxi Profile"
+        >
+          <div className="p-6 space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium mb-1">First Name</label>
+                <input
+                  type="text"
+                  value={editFormData.first_name ?? ''}
+                  onChange={(e) => setEditFormData({ ...editFormData, first_name: e.target.value })}
+                  className="w-full px-3 py-2 border border-input rounded-lg bg-background text-foreground"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Last Name</label>
+                <input
+                  type="text"
+                  value={editFormData.last_name ?? ''}
+                  onChange={(e) => setEditFormData({ ...editFormData, last_name: e.target.value })}
+                  className="w-full px-3 py-2 border border-input rounded-lg bg-background text-foreground"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Email</label>
+                <input
+                  type="email"
+                  value={editFormData.email ?? ''}
+                  onChange={(e) => setEditFormData({ ...editFormData, email: e.target.value })}
+                  className="w-full px-3 py-2 border border-input rounded-lg bg-background text-foreground"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Phone</label>
+                <input
+                  type="tel"
+                  value={editFormData.phone ?? ''}
+                  onChange={(e) => setEditFormData({ ...editFormData, phone: e.target.value })}
+                  className="w-full px-3 py-2 border border-input rounded-lg bg-background text-foreground"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Business Name</label>
+                <input
+                  type="text"
+                  value={editFormData.business_name ?? ''}
+                  onChange={(e) => setEditFormData({ ...editFormData, business_name: e.target.value })}
+                  className="w-full px-3 py-2 border border-input rounded-lg bg-background text-foreground"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">License Number</label>
+                <input
+                  type="text"
+                  value={editFormData.license_number ?? ''}
+                  onChange={(e) => setEditFormData({ ...editFormData, license_number: e.target.value })}
+                  className="w-full px-3 py-2 border border-input rounded-lg bg-background text-foreground"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Vehicle Make</label>
+                <input
+                  type="text"
+                  value={editFormData.vehicle_make ?? ''}
+                  onChange={(e) => setEditFormData({ ...editFormData, vehicle_make: e.target.value })}
+                  className="w-full px-3 py-2 border border-input rounded-lg bg-background text-foreground"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Vehicle Model</label>
+                <input
+                  type="text"
+                  value={editFormData.vehicle_model ?? ''}
+                  onChange={(e) => setEditFormData({ ...editFormData, vehicle_model: e.target.value })}
+                  className="w-full px-3 py-2 border border-input rounded-lg bg-background text-foreground"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Vehicle Year</label>
+                <input
+                  type="number"
+                  value={editFormData.vehicle_year ?? ''}
+                  onChange={(e) => setEditFormData({ ...editFormData, vehicle_year: parseInt(e.target.value) || undefined })}
+                  className="w-full px-3 py-2 border border-input rounded-lg bg-background text-foreground"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Vehicle Color</label>
+                <input
+                  type="text"
+                  value={editFormData.vehicle_color ?? ''}
+                  onChange={(e) => setEditFormData({ ...editFormData, vehicle_color: e.target.value })}
+                  className="w-full px-3 py-2 border border-input rounded-lg bg-background text-foreground"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Vehicle Registration</label>
+                <input
+                  type="text"
+                  value={editFormData.vehicle_registration ?? ''}
+                  onChange={(e) => setEditFormData({ ...editFormData, vehicle_registration: e.target.value })}
+                  className="w-full px-3 py-2 border border-input rounded-lg bg-background text-foreground"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Insurance Provider</label>
+                <input
+                  type="text"
+                  value={editFormData.insurance_provider ?? ''}
+                  onChange={(e) => setEditFormData({ ...editFormData, insurance_provider: e.target.value })}
+                  className="w-full px-3 py-2 border border-input rounded-lg bg-background text-foreground"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Insurance Policy Number</label>
+                <input
+                  type="text"
+                  value={editFormData.insurance_policy_number ?? ''}
+                  onChange={(e) => setEditFormData({ ...editFormData, insurance_policy_number: e.target.value })}
+                  className="w-full px-3 py-2 border border-input rounded-lg bg-background text-foreground"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Hourly Rate</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={editFormData.hourly_rate ?? ''}
+                  onChange={(e) => setEditFormData({ ...editFormData, hourly_rate: parseFloat(e.target.value) || undefined })}
+                  className="w-full px-3 py-2 border border-input rounded-lg bg-background text-foreground"
+                />
+              </div>
+              <div className="col-span-2">
+                <label className="block text-sm font-medium mb-1">Service Areas (comma-separated)</label>
+                <input
+                  type="text"
+                  value={editFormData.service_areas?.join(', ') ?? ''}
+                  onChange={(e) => setEditFormData({ ...editFormData, service_areas: e.target.value.split(',').map(s => s.trim()).filter(Boolean) })}
+                  className="w-full px-3 py-2 border border-input rounded-lg bg-background text-foreground"
+                  placeholder="Area 1, Area 2"
+                />
+              </div>
+              <div className="col-span-2">
+                <label className="block text-sm font-medium mb-1">Availability</label>
+                <input
+                  type="text"
+                  value={editFormData.availability ?? ''}
+                  onChange={(e) => setEditFormData({ ...editFormData, availability: e.target.value })}
+                  className="w-full px-3 py-2 border border-input rounded-lg bg-background text-foreground"
+                />
+              </div>
+              <div className="col-span-2">
+                <label className="block text-sm font-medium mb-1">Profile Image URL</label>
+                <input
+                  type="url"
+                  value={editFormData.profile_image_url ?? ''}
+                  onChange={(e) => setEditFormData({ ...editFormData, profile_image_url: e.target.value })}
+                  className="w-full px-3 py-2 border border-input rounded-lg bg-background text-foreground"
+                />
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 pt-4">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setIsEditModalOpen(false)
+                  setEditingTaxi(null)
+                  setEditFormData({})
+                }}
+              >
+                Cancel
+              </Button>
+              <Button onClick={handleSaveEdit}>
+                Save Changes
+              </Button>
             </div>
           </div>
         </Modal>

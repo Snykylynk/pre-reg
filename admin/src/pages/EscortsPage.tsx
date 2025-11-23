@@ -3,7 +3,7 @@ import { supabase } from '@/lib/supabase'
 import type { EscortProfile, ProfilePicture } from '@/lib/types'
 import { Button } from '@/components/ui/button'
 import { Modal } from '@/components/ui/modal'
-import { CheckCircle, XCircle, Search, Users } from 'lucide-react'
+import { CheckCircle, XCircle, Search, Users, Ban, Edit, Trash2, ShieldX } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { ImageCarousel } from '@/components/ImageCarousel'
 
@@ -67,6 +67,9 @@ export function EscortsPage() {
   const [filterVerified, setFilterVerified] = useState<'all' | 'verified' | 'unverified'>('all')
   const [selectedEscort, setSelectedEscort] = useState<EscortProfile | null>(null)
   const [galleryImages, setGalleryImages] = useState<ProfilePicture[]>([])
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false)
+  const [editingEscort, setEditingEscort] = useState<EscortProfile | null>(null)
+  const [editFormData, setEditFormData] = useState<Partial<EscortProfile>>({})
 
   useEffect(() => {
     fetchEscorts()
@@ -113,6 +116,123 @@ export function EscortsPage() {
     } catch (error) {
       console.error('Error updating verification:', error)
       alert('Failed to update verification status')
+    }
+  }
+
+  const toggleBan = async (e: React.MouseEvent, profileId: string, userId: string, currentStatus: boolean) => {
+    e.stopPropagation()
+    if (!confirm(`Are you sure you want to ${currentStatus ? 'unban' : 'ban'} this user?`)) {
+      return
+    }
+
+    try {
+      const newBannedStatus = !currentStatus
+      
+      // Update profile banned status
+      const { error: profileError } = await supabase
+        .from('escort_profiles')
+        .update({ banned: newBannedStatus })
+        .eq('id', profileId)
+
+      if (profileError) throw profileError
+
+      // Also update auth user metadata to ban/unban
+      const { error: authError } = await supabase.auth.admin.updateUserById(userId, {
+        user_metadata: { banned: newBannedStatus }
+      })
+
+      if (authError) {
+        console.warn('Could not update auth user metadata:', authError)
+        // Continue anyway as profile update succeeded
+      }
+
+      await fetchEscorts()
+      if (selectedEscort?.id === profileId) {
+        setSelectedEscort({ ...selectedEscort, banned: newBannedStatus })
+      }
+    } catch (error) {
+      console.error('Error updating ban status:', error)
+      alert('Failed to update ban status')
+    }
+  }
+
+  const handleEdit = (e: React.MouseEvent, escort: EscortProfile) => {
+    e.stopPropagation()
+    setEditingEscort(escort)
+    setEditFormData({
+      first_name: escort.first_name,
+      last_name: escort.last_name,
+      email: escort.email,
+      phone: escort.phone,
+      location: escort.location,
+      gender: escort.gender,
+      date_of_birth: escort.date_of_birth,
+      languages: escort.languages,
+      services: escort.services,
+      hourly_rate: escort.hourly_rate,
+      availability: escort.availability,
+      bio: escort.bio,
+      profile_image_url: escort.profile_image_url,
+    })
+    setIsEditModalOpen(true)
+  }
+
+  const handleSaveEdit = async () => {
+    if (!editingEscort?.id) return
+
+    try {
+      const { error } = await supabase
+        .from('escort_profiles')
+        .update({
+          ...editFormData,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', editingEscort.id)
+
+      if (error) throw error
+
+      await fetchEscorts()
+      if (selectedEscort?.id === editingEscort.id) {
+        setSelectedEscort({ ...selectedEscort, ...editFormData })
+      }
+      setIsEditModalOpen(false)
+      setEditingEscort(null)
+      setEditFormData({})
+    } catch (error) {
+      console.error('Error updating escort:', error)
+      alert('Failed to update escort profile')
+    }
+  }
+
+  const handleDelete = async (e: React.MouseEvent, profileId: string, userId: string) => {
+    e.stopPropagation()
+    if (!confirm('Are you sure you want to delete this profile? This action cannot be undone.')) {
+      return
+    }
+
+    try {
+      // Delete the profile (this will cascade delete related data due to ON DELETE CASCADE)
+      const { error: profileError } = await supabase
+        .from('escort_profiles')
+        .delete()
+        .eq('id', profileId)
+
+      if (profileError) throw profileError
+
+      // Optionally delete the auth user as well
+      const { error: authError } = await supabase.auth.admin.deleteUser(userId)
+      if (authError) {
+        console.warn('Could not delete auth user:', authError)
+        // Continue anyway as profile deletion succeeded
+      }
+
+      await fetchEscorts()
+      if (selectedEscort?.id === profileId) {
+        setSelectedEscort(null)
+      }
+    } catch (error) {
+      console.error('Error deleting escort:', error)
+      alert('Failed to delete escort profile')
     }
   }
 
@@ -208,7 +328,7 @@ export function EscortsPage() {
                     <p className="text-sm truncate">{escort.phone}</p>
                   </div>
                 </div>
-                <div className="flex items-center gap-2 flex-shrink-0">
+                <div className="flex items-center gap-2 shrink-0">
                   {escort.verified ? (
                     <span className="flex items-center gap-1.5 text-sm font-medium text-green-600 bg-green-600/10 px-2.5 py-1 rounded-full">
                       <CheckCircle className="h-4 w-4" />
@@ -220,6 +340,12 @@ export function EscortsPage() {
                       Unverified
                     </span>
                   )}
+                  {escort.banned && (
+                    <span className="flex items-center gap-1.5 text-sm font-medium text-red-600 bg-red-600/10 px-2.5 py-1 rounded-full">
+                      <Ban className="h-4 w-4" />
+                      Banned
+                    </span>
+                  )}
                   <Button
                     variant="outline"
                     size="sm"
@@ -227,6 +353,33 @@ export function EscortsPage() {
                     className="whitespace-nowrap"
                   >
                     {escort.verified ? 'Unverify' : 'Verify'}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={(e) => toggleBan(e, escort.id!, escort.user_id, escort.banned ?? false)}
+                    className="whitespace-nowrap"
+                    title={escort.banned ? 'Unban user' : 'Ban user'}
+                  >
+                    {escort.banned ? <ShieldX className="h-4 w-4" /> : <Ban className="h-4 w-4" />}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={(e) => handleEdit(e, escort)}
+                    className="whitespace-nowrap"
+                    title="Edit profile"
+                  >
+                    <Edit className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={(e) => handleDelete(e, escort.id!, escort.user_id)}
+                    className="whitespace-nowrap text-red-600 hover:text-red-700 hover:bg-red-50"
+                    title="Delete profile"
+                  >
+                    <Trash2 className="h-4 w-4" />
                   </Button>
                 </div>
               </div>
@@ -294,26 +447,73 @@ export function EscortsPage() {
                   </h2>
                   <p className="text-muted-foreground mt-1 text-left">{selectedEscort.location}</p>
                 </div>
-                <Button
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    toggleVerification(e, selectedEscort.id!, selectedEscort.verified ?? false)
-                  }}
-                  variant={selectedEscort.verified ? "outline" : "default"}
-                  className="whitespace-nowrap"
-                >
-                  {selectedEscort.verified ? (
-                    <>
-                      <CheckCircle className="w-4 h-4 mr-2" />
-                      Verified
-                    </>
-                  ) : (
-                    <>
-                      <XCircle className="w-4 h-4 mr-2" />
-                      Verify
-                    </>
-                  )}
-                </Button>
+                <div className="flex items-center gap-2">
+                  <Button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      toggleVerification(e, selectedEscort.id!, selectedEscort.verified ?? false)
+                    }}
+                    variant={selectedEscort.verified ? "outline" : "default"}
+                    className="whitespace-nowrap"
+                  >
+                    {selectedEscort.verified ? (
+                      <>
+                        <CheckCircle className="w-4 h-4 mr-2" />
+                        Verified
+                      </>
+                    ) : (
+                      <>
+                        <XCircle className="w-4 h-4 mr-2" />
+                        Verify
+                      </>
+                    )}
+                  </Button>
+                  <Button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      toggleBan(e, selectedEscort.id!, selectedEscort.user_id, selectedEscort.banned ?? false)
+                    }}
+                    variant={selectedEscort.banned ? "default" : "outline"}
+                    className="whitespace-nowrap"
+                    title={selectedEscort.banned ? 'Unban user' : 'Ban user'}
+                  >
+                    {selectedEscort.banned ? (
+                      <>
+                        <ShieldX className="w-4 h-4 mr-2" />
+                        Unban
+                      </>
+                    ) : (
+                      <>
+                        <Ban className="w-4 h-4 mr-2" />
+                        Ban
+                      </>
+                    )}
+                  </Button>
+                  <Button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      handleEdit(e, selectedEscort)
+                    }}
+                    variant="outline"
+                    className="whitespace-nowrap"
+                    title="Edit profile"
+                  >
+                    <Edit className="w-4 h-4 mr-2" />
+                    Edit
+                  </Button>
+                  <Button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      handleDelete(e, selectedEscort.id!, selectedEscort.user_id)
+                    }}
+                    variant="outline"
+                    className="whitespace-nowrap text-red-600 hover:text-red-700 hover:bg-red-50"
+                    title="Delete profile"
+                  >
+                    <Trash2 className="w-4 h-4 mr-2" />
+                    Delete
+                  </Button>
+                </div>
               </div>
 
               {/* Gallery Images Carousel */}
@@ -428,6 +628,159 @@ export function EscortsPage() {
                   )}
                 </div>
               )}
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* Edit Modal */}
+      {isEditModalOpen && editingEscort && (
+        <Modal
+          isOpen={isEditModalOpen}
+          onClose={() => {
+            setIsEditModalOpen(false)
+            setEditingEscort(null)
+            setEditFormData({})
+          }}
+          title="Edit Escort Profile"
+        >
+          <div className="p-6 space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium mb-1">First Name</label>
+                <input
+                  type="text"
+                  value={editFormData.first_name ?? ''}
+                  onChange={(e) => setEditFormData({ ...editFormData, first_name: e.target.value })}
+                  className="w-full px-3 py-2 border border-input rounded-lg bg-background text-foreground"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Last Name</label>
+                <input
+                  type="text"
+                  value={editFormData.last_name ?? ''}
+                  onChange={(e) => setEditFormData({ ...editFormData, last_name: e.target.value })}
+                  className="w-full px-3 py-2 border border-input rounded-lg bg-background text-foreground"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Email</label>
+                <input
+                  type="email"
+                  value={editFormData.email ?? ''}
+                  onChange={(e) => setEditFormData({ ...editFormData, email: e.target.value })}
+                  className="w-full px-3 py-2 border border-input rounded-lg bg-background text-foreground"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Phone</label>
+                <input
+                  type="tel"
+                  value={editFormData.phone ?? ''}
+                  onChange={(e) => setEditFormData({ ...editFormData, phone: e.target.value })}
+                  className="w-full px-3 py-2 border border-input rounded-lg bg-background text-foreground"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Location</label>
+                <input
+                  type="text"
+                  value={editFormData.location ?? ''}
+                  onChange={(e) => setEditFormData({ ...editFormData, location: e.target.value })}
+                  className="w-full px-3 py-2 border border-input rounded-lg bg-background text-foreground"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Gender</label>
+                <input
+                  type="text"
+                  value={editFormData.gender ?? ''}
+                  onChange={(e) => setEditFormData({ ...editFormData, gender: e.target.value })}
+                  className="w-full px-3 py-2 border border-input rounded-lg bg-background text-foreground"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Date of Birth</label>
+                <input
+                  type="date"
+                  value={editFormData.date_of_birth ?? ''}
+                  onChange={(e) => setEditFormData({ ...editFormData, date_of_birth: e.target.value })}
+                  className="w-full px-3 py-2 border border-input rounded-lg bg-background text-foreground"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Hourly Rate</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={editFormData.hourly_rate ?? ''}
+                  onChange={(e) => setEditFormData({ ...editFormData, hourly_rate: parseFloat(e.target.value) || undefined })}
+                  className="w-full px-3 py-2 border border-input rounded-lg bg-background text-foreground"
+                />
+              </div>
+              <div className="col-span-2">
+                <label className="block text-sm font-medium mb-1">Languages (comma-separated)</label>
+                <input
+                  type="text"
+                  value={editFormData.languages?.join(', ') ?? ''}
+                  onChange={(e) => setEditFormData({ ...editFormData, languages: e.target.value.split(',').map(s => s.trim()).filter(Boolean) })}
+                  className="w-full px-3 py-2 border border-input rounded-lg bg-background text-foreground"
+                  placeholder="English, Spanish, French"
+                />
+              </div>
+              <div className="col-span-2">
+                <label className="block text-sm font-medium mb-1">Services (comma-separated)</label>
+                <input
+                  type="text"
+                  value={editFormData.services?.join(', ') ?? ''}
+                  onChange={(e) => setEditFormData({ ...editFormData, services: e.target.value.split(',').map(s => s.trim()).filter(Boolean) })}
+                  className="w-full px-3 py-2 border border-input rounded-lg bg-background text-foreground"
+                  placeholder="Service 1, Service 2"
+                />
+              </div>
+              <div className="col-span-2">
+                <label className="block text-sm font-medium mb-1">Availability</label>
+                <input
+                  type="text"
+                  value={editFormData.availability ?? ''}
+                  onChange={(e) => setEditFormData({ ...editFormData, availability: e.target.value })}
+                  className="w-full px-3 py-2 border border-input rounded-lg bg-background text-foreground"
+                />
+              </div>
+              <div className="col-span-2">
+                <label className="block text-sm font-medium mb-1">Bio</label>
+                <textarea
+                  value={editFormData.bio ?? ''}
+                  onChange={(e) => setEditFormData({ ...editFormData, bio: e.target.value })}
+                  rows={4}
+                  className="w-full px-3 py-2 border border-input rounded-lg bg-background text-foreground"
+                />
+              </div>
+              <div className="col-span-2">
+                <label className="block text-sm font-medium mb-1">Profile Image URL</label>
+                <input
+                  type="url"
+                  value={editFormData.profile_image_url ?? ''}
+                  onChange={(e) => setEditFormData({ ...editFormData, profile_image_url: e.target.value })}
+                  className="w-full px-3 py-2 border border-input rounded-lg bg-background text-foreground"
+                />
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 pt-4">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setIsEditModalOpen(false)
+                  setEditingEscort(null)
+                  setEditFormData({})
+                }}
+              >
+                Cancel
+              </Button>
+              <Button onClick={handleSaveEdit}>
+                Save Changes
+              </Button>
             </div>
           </div>
         </Modal>
