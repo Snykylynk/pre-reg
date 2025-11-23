@@ -22,7 +22,7 @@ export function TopNav() {
           <h2 className="text-lg font-semibold">{pageInfo.title}</h2>
         </div>
         <div className="flex items-center gap-4">
-          <div className="hidden sm:block text-sm text-muted-foreground px-3 py-1.5 rounded-md bg-muted/50">
+          <div className="hidden sm:block text-sm text-white px-3 py-1.5 rounded-md bg-muted/50">
             Admin Portal
           </div>
         </div>

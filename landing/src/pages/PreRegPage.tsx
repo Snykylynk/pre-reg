@@ -24,7 +24,7 @@ export default function PreRegPage() {
         </div>
 
         <div className="grid md:grid-cols-2 gap-6 mt-8">
-          <Card className="hover:shadow-lg transition-shadow">
+          <Card className="hover:shadow-lg transition-shadow flex flex-col">
             <CardHeader>
               <Users className="w-12 h-12 mb-4 text-primary" />
               <CardTitle>Escort Registration</CardTitle>
@@ -32,8 +32,8 @@ export default function PreRegPage() {
                 Join as a professional escort and start offering your services
               </CardDescription>
             </CardHeader>
-            <CardContent>
-              <Link to="/register/escort">
+            <CardContent className="flex-1 flex items-end">
+              <Link to="/register/escort" className="w-full">
                 <Button className="w-full" size="lg">
                   Register as Escort
                 </Button>
@@ -41,7 +41,7 @@ export default function PreRegPage() {
             </CardContent>
           </Card>
 
-          <Card className="hover:shadow-lg transition-shadow">
+          <Card className="hover:shadow-lg transition-shadow flex flex-col">
             <CardHeader>
               <Car className="w-12 h-12 mb-4 text-primary" />
               <CardTitle>Taxi Owner Registration</CardTitle>
@@ -49,8 +49,8 @@ export default function PreRegPage() {
                 Register your taxi service and start driving with us
               </CardDescription>
             </CardHeader>
-            <CardContent>
-              <Link to="/register/taxi">
+            <CardContent className="flex-1 flex items-end">
+              <Link to="/register/taxi" className="w-full">
                 <Button className="w-full" size="lg">
                   Register as Taxi Owner
                 </Button>

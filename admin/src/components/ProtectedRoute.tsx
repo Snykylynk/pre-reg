@@ -22,7 +22,7 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-screen">
-        <div className="text-muted-foreground">Checking authorization...</div>
+        <div className="text-white">Checking authorization...</div>
       </div>
     )
   }

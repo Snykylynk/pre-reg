@@ -33,7 +33,7 @@ export function ImageCarousel({ images, title = 'Gallery' }: ImageCarouselProps)
     return (
       <div className="mb-6">
         <h3 className="text-lg font-semibold mb-4 text-left">{title}</h3>
-        <p className="text-sm text-muted-foreground text-left">No pictures available</p>
+        <p className="text-sm text-white text-left">No pictures available</p>
       </div>
     )
   }

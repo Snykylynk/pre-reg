@@ -136,14 +136,27 @@ export function TaxisPage() {
 
       if (profileError) throw profileError
 
-      // Also update auth user metadata to ban/unban
-      const { error: authError } = await supabase.auth.admin.updateUserById(userId, {
-        user_metadata: { banned: newBannedStatus }
-      })
+      // Use Supabase Auth's built-in ban functionality
+      if (newBannedStatus) {
+        // Ban user: set ban_duration to a very long period (effectively permanent)
+        const { error: authError } = await supabase.auth.admin.updateUserById(userId, {
+          ban_duration: '9999d' // 9999 days (effectively permanent)
+        })
 
-      if (authError) {
-        console.warn('Could not update auth user metadata:', authError)
-        // Continue anyway as profile update succeeded
+        if (authError) {
+          console.error('Could not ban user via auth:', authError)
+          throw authError
+        }
+      } else {
+        // Unban user: set ban_duration to 'none'
+        const { error: authError } = await supabase.auth.admin.updateUserById(userId, {
+          ban_duration: 'none'
+        })
+
+        if (authError) {
+          console.error('Could not unban user via auth:', authError)
+          throw authError
+        }
       }
 
       await fetchTaxis()
@@ -259,7 +272,7 @@ export function TaxisPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-muted-foreground">Loading taxis...</div>
+        <div className="text-white">Loading taxis...</div>
       </div>
     )
   }
@@ -268,7 +281,7 @@ export function TaxisPage() {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
         <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-white" />
           <input
             type="text"
             placeholder="Search by name, email, phone, or business..."
@@ -293,7 +306,7 @@ export function TaxisPage() {
       <div className="bg-card border border-border rounded-lg overflow-hidden">
         {filteredTaxis.length === 0 ? (
           <Card>
-            <CardContent className="py-12 text-center text-muted-foreground">
+            <CardContent className="py-12 text-center text-white">
               <Car className="h-12 w-12 mx-auto mb-4 opacity-50" />
               <p className="text-lg font-medium">No taxi drivers found</p>
               <p className="text-sm mt-1">Try adjusting your search or filter criteria</p>
@@ -327,7 +340,7 @@ export function TaxisPage() {
                     </div>
                   )}
                   <div className="min-w-0">
-                    <p className="text-sm text-muted-foreground truncate">{taxi.email}</p>
+                    <p className="text-sm text-white truncate">{taxi.email}</p>
                   </div>
                   <div className="min-w-0">
                     <p className="text-sm truncate">{taxi.phone}</p>
@@ -340,7 +353,7 @@ export function TaxisPage() {
                       Verified
                     </span>
                   ) : (
-                    <span className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground bg-muted px-2.5 py-1 rounded-full">
+                    <span className="flex items-center gap-1.5 text-sm font-medium text-white bg-muted px-2.5 py-1 rounded-full">
                       <XCircle className="h-4 w-4" />
                       Unverified
                     </span>
@@ -430,7 +443,7 @@ export function TaxisPage() {
                       />
                     ) : (
                       <div className="w-full h-full bg-muted flex items-center justify-center">
-                        <Car className="w-12 h-12 text-muted-foreground" />
+                        <Car className="w-12 h-12 text-white" />
                       </div>
                     )}
                   </div>
@@ -451,10 +464,10 @@ export function TaxisPage() {
                     {selectedTaxi.first_name} {selectedTaxi.last_name}
                   </h2>
                   {selectedTaxi.business_name && (
-                    <p className="text-muted-foreground mt-1 text-left">{selectedTaxi.business_name}</p>
+                    <p className="text-white mt-1 text-left">{selectedTaxi.business_name}</p>
                   )}
                   {selectedTaxi.vehicle_make && selectedTaxi.vehicle_model && (
-                    <p className="text-sm text-muted-foreground mt-1 text-left">
+                    <p className="text-sm text-white mt-1 text-left">
                       {selectedTaxi.vehicle_year} {selectedTaxi.vehicle_make} {selectedTaxi.vehicle_model}
                     </p>
                   )}
@@ -534,100 +547,100 @@ export function TaxisPage() {
               {/* Details Grid */}
               <div className="grid grid-cols-2 gap-4 mb-6 text-left">
               <div>
-                <p className="text-sm text-muted-foreground mb-1">First Name</p>
+                <p className="text-sm text-white mb-1">First Name</p>
                 <p className="font-medium">{selectedTaxi.first_name}</p>
               </div>
               <div>
-                <p className="text-sm text-muted-foreground mb-1">Last Name</p>
+                <p className="text-sm text-white mb-1">Last Name</p>
                 <p className="font-medium">{selectedTaxi.last_name}</p>
               </div>
               <div>
-                <p className="text-sm text-muted-foreground mb-1">Email</p>
+                <p className="text-sm text-white mb-1">Email</p>
                 <p className="font-medium">{selectedTaxi.email}</p>
               </div>
               <div>
-                <p className="text-sm text-muted-foreground mb-1">Phone</p>
+                <p className="text-sm text-white mb-1">Phone</p>
                 <p className="font-medium">{selectedTaxi.phone}</p>
               </div>
               {selectedTaxi.business_name && (
                 <div>
-                  <p className="text-sm text-muted-foreground mb-1">Business Name</p>
+                  <p className="text-sm text-white mb-1">Business Name</p>
                   <p className="font-medium">{selectedTaxi.business_name}</p>
                 </div>
               )}
               <div>
-                <p className="text-sm text-muted-foreground mb-1">License Number</p>
+                <p className="text-sm text-white mb-1">License Number</p>
                 <p className="font-medium">{selectedTaxi.license_number}</p>
               </div>
               {selectedTaxi.vehicle_make && (
                 <div>
-                  <p className="text-sm text-muted-foreground mb-1">Vehicle Make</p>
+                  <p className="text-sm text-white mb-1">Vehicle Make</p>
                   <p className="font-medium">{selectedTaxi.vehicle_make}</p>
                 </div>
               )}
               {selectedTaxi.vehicle_model && (
                 <div>
-                  <p className="text-sm text-muted-foreground mb-1">Vehicle Model</p>
+                  <p className="text-sm text-white mb-1">Vehicle Model</p>
                   <p className="font-medium">{selectedTaxi.vehicle_model}</p>
                 </div>
               )}
               {selectedTaxi.vehicle_year && (
                 <div>
-                  <p className="text-sm text-muted-foreground mb-1">Vehicle Year</p>
+                  <p className="text-sm text-white mb-1">Vehicle Year</p>
                   <p className="font-medium">{selectedTaxi.vehicle_year}</p>
                 </div>
               )}
               {selectedTaxi.vehicle_color && (
                 <div>
-                  <p className="text-sm text-muted-foreground mb-1">Vehicle Color</p>
+                  <p className="text-sm text-white mb-1">Vehicle Color</p>
                   <p className="font-medium">{selectedTaxi.vehicle_color}</p>
                 </div>
               )}
               {selectedTaxi.vehicle_registration && (
                 <div>
-                  <p className="text-sm text-muted-foreground mb-1">Vehicle Registration</p>
+                  <p className="text-sm text-white mb-1">Vehicle Registration</p>
                   <p className="font-medium">{selectedTaxi.vehicle_registration}</p>
                 </div>
               )}
               {selectedTaxi.insurance_provider && (
                 <div>
-                  <p className="text-sm text-muted-foreground mb-1">Insurance Provider</p>
+                  <p className="text-sm text-white mb-1">Insurance Provider</p>
                   <p className="font-medium">{selectedTaxi.insurance_provider}</p>
                 </div>
               )}
               {selectedTaxi.insurance_policy_number && (
                 <div>
-                  <p className="text-sm text-muted-foreground mb-1">Insurance Policy Number</p>
+                  <p className="text-sm text-white mb-1">Insurance Policy Number</p>
                   <p className="font-medium">{selectedTaxi.insurance_policy_number}</p>
                 </div>
               )}
               {selectedTaxi.hourly_rate && (
                 <div>
-                  <p className="text-sm text-muted-foreground mb-1">Hourly Rate</p>
+                  <p className="text-sm text-white mb-1">Hourly Rate</p>
                   <p className="font-medium">${selectedTaxi.hourly_rate}</p>
                 </div>
               )}
               {selectedTaxi.availability && (
                 <div>
-                  <p className="text-sm text-muted-foreground mb-1">Availability</p>
+                  <p className="text-sm text-white mb-1">Availability</p>
                   <p className="font-medium">{selectedTaxi.availability}</p>
                 </div>
               )}
               {selectedTaxi.created_at && (
                 <div>
-                  <p className="text-sm text-muted-foreground mb-1">Registered</p>
+                  <p className="text-sm text-white mb-1">Registered</p>
                   <p className="font-medium">
                     {new Date(selectedTaxi.created_at).toLocaleDateString()}
                   </p>
                 </div>
               )}
               <div>
-                <p className="text-sm text-muted-foreground mb-1">Verification Status</p>
+                <p className="text-sm text-white mb-1">Verification Status</p>
                 <p className="font-medium">
                   {selectedTaxi.verified ? (
                     <span className="text-green-600">Verified</span>
                   ) : (
-                    <span className="text-muted-foreground">Unverified</span>
+                    <span className="text-white">Unverified</span>
                   )}
                 </p>
               </div>
@@ -636,7 +649,7 @@ export function TaxisPage() {
               {/* Service Areas */}
               {selectedTaxi.service_areas && selectedTaxi.service_areas.length > 0 && (
                 <div className="text-left">
-                  <h3 className="text-sm font-semibold mb-2 text-muted-foreground">Service Areas</h3>
+                  <h3 className="text-sm font-semibold mb-2 text-white">Service Areas</h3>
                   <div className="flex flex-wrap gap-2">
                     {selectedTaxi.service_areas.map((area, idx) => (
                       <span

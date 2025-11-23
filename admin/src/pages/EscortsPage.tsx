@@ -136,14 +136,27 @@ export function EscortsPage() {
 
       if (profileError) throw profileError
 
-      // Also update auth user metadata to ban/unban
-      const { error: authError } = await supabase.auth.admin.updateUserById(userId, {
-        user_metadata: { banned: newBannedStatus }
-      })
+      // Use Supabase Auth's built-in ban functionality
+      if (newBannedStatus) {
+        // Ban user: set ban_duration to a very long period (effectively permanent)
+        const { error: authError } = await supabase.auth.admin.updateUserById(userId, {
+          ban_duration: '9999d' // 9999 days (effectively permanent)
+        })
 
-      if (authError) {
-        console.warn('Could not update auth user metadata:', authError)
-        // Continue anyway as profile update succeeded
+        if (authError) {
+          console.error('Could not ban user via auth:', authError)
+          throw authError
+        }
+      } else {
+        // Unban user: set ban_duration to 'none'
+        const { error: authError } = await supabase.auth.admin.updateUserById(userId, {
+          ban_duration: 'none'
+        })
+
+        if (authError) {
+          console.error('Could not unban user via auth:', authError)
+          throw authError
+        }
       }
 
       await fetchEscorts()
@@ -255,7 +268,7 @@ export function EscortsPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-muted-foreground">Loading escorts...</div>
+        <div className="text-white">Loading escorts...</div>
       </div>
     )
   }
@@ -264,7 +277,7 @@ export function EscortsPage() {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
         <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-white" />
           <input
             type="text"
             placeholder="Search by name, email, phone, or location..."
@@ -288,7 +301,7 @@ export function EscortsPage() {
       <div className="bg-card border border-border rounded-lg overflow-hidden">
         {filteredEscorts.length === 0 ? (
           <Card>
-            <CardContent className="py-12 text-center text-muted-foreground">
+            <CardContent className="py-12 text-center text-white">
               <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
               <p className="text-lg font-medium">No escorts found</p>
               <p className="text-sm mt-1">Try adjusting your search or filter criteria</p>
@@ -322,7 +335,7 @@ export function EscortsPage() {
                     </div>
                   )}
                   <div className="min-w-0">
-                    <p className="text-sm text-muted-foreground truncate">{escort.email}</p>
+                    <p className="text-sm text-white truncate">{escort.email}</p>
                   </div>
                   <div className="min-w-0">
                     <p className="text-sm truncate">{escort.phone}</p>
@@ -335,7 +348,7 @@ export function EscortsPage() {
                       Verified
                     </span>
                   ) : (
-                    <span className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground bg-muted px-2.5 py-1 rounded-full">
+                    <span className="flex items-center gap-1.5 text-sm font-medium text-white bg-muted px-2.5 py-1 rounded-full">
                       <XCircle className="h-4 w-4" />
                       Unverified
                     </span>
@@ -425,7 +438,7 @@ export function EscortsPage() {
                       />
                     ) : (
                       <div className="w-full h-full bg-muted flex items-center justify-center">
-                        <Users className="w-12 h-12 text-muted-foreground" />
+                        <Users className="w-12 h-12 text-white" />
                       </div>
                     )}
                   </div>
@@ -445,7 +458,7 @@ export function EscortsPage() {
                   <h2 className="text-2xl font-bold text-left">
                     {selectedEscort.first_name} {selectedEscort.last_name}
                   </h2>
-                  <p className="text-muted-foreground mt-1 text-left">{selectedEscort.location}</p>
+                  <p className="text-white mt-1 text-left">{selectedEscort.location}</p>
                 </div>
                 <div className="flex items-center gap-2">
                   <Button
@@ -523,39 +536,39 @@ export function EscortsPage() {
               {selectedEscort.bio && (
                 <div className="mb-6">
                   <h3 className="text-lg font-semibold mb-2 text-left">About</h3>
-                  <p className="text-sm leading-relaxed text-muted-foreground text-left">{selectedEscort.bio}</p>
+                  <p className="text-sm leading-relaxed text-white text-left">{selectedEscort.bio}</p>
                 </div>
               )}
 
               {/* Details Grid */}
               <div className="grid grid-cols-2 gap-4 mb-6 text-left">
               <div>
-                <p className="text-sm text-muted-foreground mb-1">First Name</p>
+                <p className="text-sm text-white mb-1">First Name</p>
                 <p className="font-medium">{selectedEscort.first_name}</p>
               </div>
               <div>
-                <p className="text-sm text-muted-foreground mb-1">Last Name</p>
+                <p className="text-sm text-white mb-1">Last Name</p>
                 <p className="font-medium">{selectedEscort.last_name}</p>
               </div>
               <div>
-                <p className="text-sm text-muted-foreground mb-1">Email</p>
+                <p className="text-sm text-white mb-1">Email</p>
                 <p className="font-medium">{selectedEscort.email}</p>
               </div>
               <div>
-                <p className="text-sm text-muted-foreground mb-1">Phone</p>
+                <p className="text-sm text-white mb-1">Phone</p>
                 <p className="font-medium">{selectedEscort.phone}</p>
               </div>
               <div>
-                <p className="text-sm text-muted-foreground mb-1">Location</p>
+                <p className="text-sm text-white mb-1">Location</p>
                 <p className="font-medium">{selectedEscort.location}</p>
               </div>
               <div>
-                <p className="text-sm text-muted-foreground mb-1">Gender</p>
+                <p className="text-sm text-white mb-1">Gender</p>
                 <p className="font-medium">{selectedEscort.gender}</p>
               </div>
               {selectedEscort.date_of_birth && (
                 <div>
-                  <p className="text-sm text-muted-foreground mb-1">Date of Birth</p>
+                  <p className="text-sm text-white mb-1">Date of Birth</p>
                   <p className="font-medium">
                     {new Date(selectedEscort.date_of_birth).toLocaleDateString()}
                   </p>
@@ -563,31 +576,31 @@ export function EscortsPage() {
               )}
               {selectedEscort.hourly_rate && (
                 <div>
-                  <p className="text-sm text-muted-foreground mb-1">Hourly Rate</p>
+                  <p className="text-sm text-white mb-1">Hourly Rate</p>
                   <p className="font-medium">${selectedEscort.hourly_rate}</p>
                 </div>
               )}
               {selectedEscort.availability && (
                 <div>
-                  <p className="text-sm text-muted-foreground mb-1">Availability</p>
+                  <p className="text-sm text-white mb-1">Availability</p>
                   <p className="font-medium">{selectedEscort.availability}</p>
                 </div>
               )}
               {selectedEscort.created_at && (
                 <div>
-                  <p className="text-sm text-muted-foreground mb-1">Registered</p>
+                  <p className="text-sm text-white mb-1">Registered</p>
                   <p className="font-medium">
                     {new Date(selectedEscort.created_at).toLocaleDateString()}
                   </p>
                 </div>
               )}
               <div>
-                <p className="text-sm text-muted-foreground mb-1">Verification Status</p>
+                <p className="text-sm text-white mb-1">Verification Status</p>
                 <p className="font-medium">
                   {selectedEscort.verified ? (
                     <span className="text-green-600">Verified</span>
                   ) : (
-                    <span className="text-muted-foreground">Unverified</span>
+                    <span className="text-white">Unverified</span>
                   )}
                 </p>
               </div>
@@ -598,7 +611,7 @@ export function EscortsPage() {
                 <div className="space-y-4 text-left">
                   {selectedEscort.languages && selectedEscort.languages.length > 0 && (
                     <div>
-                      <h3 className="text-sm font-semibold mb-2 text-muted-foreground">Languages</h3>
+                      <h3 className="text-sm font-semibold mb-2 text-white">Languages</h3>
                       <div className="flex flex-wrap gap-2">
                         {selectedEscort.languages.map((lang, idx) => (
                           <span
@@ -613,7 +626,7 @@ export function EscortsPage() {
                   )}
                   {selectedEscort.services && selectedEscort.services.length > 0 && (
                     <div>
-                      <h3 className="text-sm font-semibold mb-2 text-muted-foreground">Services</h3>
+                      <h3 className="text-sm font-semibold mb-2 text-white">Services</h3>
                       <div className="flex flex-wrap gap-2">
                         {selectedEscort.services.map((service, idx) => (
                           <span

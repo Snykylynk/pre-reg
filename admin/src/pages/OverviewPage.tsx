@@ -81,7 +81,7 @@ export function OverviewPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-muted-foreground">Loading statistics...</div>
+        <div className="text-white">Loading statistics...</div>
       </div>
     )
   }
@@ -148,7 +148,7 @@ export function OverviewPage() {
           {taxiCards.map((stat) => (
             <Card key={stat.title} className="hover:shadow-lg transition-shadow duration-200">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">{stat.title}</CardTitle>
+                <CardTitle className="text-sm font-medium text-white">{stat.title}</CardTitle>
                 <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
                   <stat.icon className="h-5 w-5 text-primary" />
                 </div>
@@ -172,7 +172,7 @@ export function OverviewPage() {
           {escortCards.map((stat) => (
             <Card key={stat.title} className="hover:shadow-lg transition-shadow duration-200">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">{stat.title}</CardTitle>
+                <CardTitle className="text-sm font-medium text-white">{stat.title}</CardTitle>
                 <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
                   <stat.icon className="h-5 w-5 text-primary" />
                 </div>
