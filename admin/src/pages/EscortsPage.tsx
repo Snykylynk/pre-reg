@@ -1,15 +1,17 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import type { EscortProfile } from '@/lib/types'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { CheckCircle, XCircle, Search } from 'lucide-react'
+import { Modal } from '@/components/ui/modal'
+import { CheckCircle, XCircle, Search, Users } from 'lucide-react'
+import { Card, CardContent } from '@/components/ui/card'
 
 export function EscortsPage() {
   const [escorts, setEscorts] = useState<EscortProfile[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const [filterVerified, setFilterVerified] = useState<'all' | 'verified' | 'unverified'>('all')
+  const [selectedEscort, setSelectedEscort] = useState<EscortProfile | null>(null)
 
   useEffect(() => {
     fetchEscorts()
@@ -31,7 +33,8 @@ export function EscortsPage() {
     }
   }
 
-  const toggleVerification = async (profileId: string, currentStatus: boolean) => {
+  const toggleVerification = async (e: React.MouseEvent, profileId: string, currentStatus: boolean) => {
+    e.stopPropagation()
     try {
       const { error } = await supabase
         .from('escort_profiles')
@@ -40,6 +43,9 @@ export function EscortsPage() {
 
       if (error) throw error
       await fetchEscorts()
+      if (selectedEscort?.id === profileId) {
+        setSelectedEscort({ ...selectedEscort, verified: !currentStatus })
+      }
     } catch (error) {
       console.error('Error updating verification:', error)
       alert('Failed to update verification status')
@@ -95,7 +101,7 @@ export function EscortsPage() {
         </select>
       </div>
 
-      <div className="grid gap-4">
+      <div className="bg-card border border-border rounded-lg overflow-hidden">
         {filteredEscorts.length === 0 ? (
           <Card>
             <CardContent className="py-12 text-center text-muted-foreground">
@@ -105,106 +111,171 @@ export function EscortsPage() {
             </CardContent>
           </Card>
         ) : (
-          filteredEscorts.map((escort) => (
-            <Card key={escort.id} className="hover:shadow-lg transition-all duration-200 border-l-4 border-l-transparent hover:border-l-primary">
-              <CardHeader className="pb-4">
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex-1 min-w-0">
-                    <CardTitle className="text-xl mb-1">
-                      {escort.first_name} {escort.last_name}
-                    </CardTitle>
-                    <CardDescription className="truncate">{escort.email}</CardDescription>
+          <div className="divide-y divide-border">
+            {filteredEscorts.map((escort) => (
+              <div
+                key={escort.id}
+                onClick={() => setSelectedEscort(escort)}
+                className="p-4 hover:bg-accent/50 cursor-pointer transition-colors flex items-center justify-between gap-4"
+              >
+                <div className="flex-1 grid grid-cols-1 md:grid-cols-3 gap-4 min-w-0">
+                  <div className="min-w-0">
+                    <p className="font-medium truncate">{escort.first_name} {escort.last_name}</p>
                   </div>
-                  <div className="flex items-center gap-2 flex-shrink-0">
-                    {escort.verified ? (
-                      <span className="flex items-center gap-1.5 text-sm font-medium text-green-600 bg-green-600/10 px-2.5 py-1 rounded-full">
-                        <CheckCircle className="h-4 w-4" />
-                        Verified
-                      </span>
-                    ) : (
-                      <span className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground bg-muted px-2.5 py-1 rounded-full">
-                        <XCircle className="h-4 w-4" />
-                        Unverified
-                      </span>
-                    )}
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => toggleVerification(escort.id!, escort.verified ?? false)}
-                      className="whitespace-nowrap"
-                    >
-                      {escort.verified ? 'Unverify' : 'Verify'}
-                    </Button>
+                  <div className="min-w-0">
+                    <p className="text-sm text-muted-foreground truncate">{escort.email}</p>
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-sm truncate">{escort.phone}</p>
                   </div>
                 </div>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
-                  <div>
-                    <p className="text-muted-foreground">Phone</p>
-                    <p className="font-medium">{escort.phone}</p>
-                  </div>
-                  <div>
-                    <p className="text-muted-foreground">Location</p>
-                    <p className="font-medium">{escort.location}</p>
-                  </div>
-                  <div>
-                    <p className="text-muted-foreground">Gender</p>
-                    <p className="font-medium">{escort.gender}</p>
-                  </div>
-                  {escort.date_of_birth && (
-                    <div>
-                      <p className="text-muted-foreground">Date of Birth</p>
-                      <p className="font-medium">
-                        {new Date(escort.date_of_birth).toLocaleDateString()}
-                      </p>
-                    </div>
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  {escort.verified ? (
+                    <span className="flex items-center gap-1.5 text-sm font-medium text-green-600 bg-green-600/10 px-2.5 py-1 rounded-full">
+                      <CheckCircle className="h-4 w-4" />
+                      Verified
+                    </span>
+                  ) : (
+                    <span className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground bg-muted px-2.5 py-1 rounded-full">
+                      <XCircle className="h-4 w-4" />
+                      Unverified
+                    </span>
                   )}
-                  {escort.languages && escort.languages.length > 0 && (
-                    <div>
-                      <p className="text-muted-foreground">Languages</p>
-                      <p className="font-medium">{escort.languages.join(', ')}</p>
-                    </div>
-                  )}
-                  {escort.services && escort.services.length > 0 && (
-                    <div>
-                      <p className="text-muted-foreground">Services</p>
-                      <p className="font-medium">{escort.services.join(', ')}</p>
-                    </div>
-                  )}
-                  {escort.hourly_rate && (
-                    <div>
-                      <p className="text-muted-foreground">Hourly Rate</p>
-                      <p className="font-medium">${escort.hourly_rate}</p>
-                    </div>
-                  )}
-                  {escort.availability && (
-                    <div>
-                      <p className="text-muted-foreground">Availability</p>
-                      <p className="font-medium">{escort.availability}</p>
-                    </div>
-                  )}
-                  {escort.created_at && (
-                    <div>
-                      <p className="text-muted-foreground">Registered</p>
-                      <p className="font-medium">
-                        {new Date(escort.created_at).toLocaleDateString()}
-                      </p>
-                    </div>
-                  )}
-                  {escort.bio && (
-                    <div className="col-span-full">
-                      <p className="text-muted-foreground">Bio</p>
-                      <p className="font-medium">{escort.bio}</p>
-                    </div>
-                  )}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={(e) => toggleVerification(e, escort.id!, escort.verified ?? false)}
+                    className="whitespace-nowrap"
+                  >
+                    {escort.verified ? 'Unverify' : 'Verify'}
+                  </Button>
                 </div>
-              </CardContent>
-            </Card>
-          ))
+              </div>
+            ))}
+          </div>
         )}
       </div>
+
+      {selectedEscort && (
+        <Modal
+          isOpen={!!selectedEscort}
+          onClose={() => setSelectedEscort(null)}
+          title={`${selectedEscort.first_name} ${selectedEscort.last_name} - Escort Details`}
+        >
+          <div className="space-y-6">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <p className="text-sm text-muted-foreground mb-1">First Name</p>
+                <p className="font-medium">{selectedEscort.first_name}</p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground mb-1">Last Name</p>
+                <p className="font-medium">{selectedEscort.last_name}</p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground mb-1">Email</p>
+                <p className="font-medium">{selectedEscort.email}</p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground mb-1">Phone</p>
+                <p className="font-medium">{selectedEscort.phone}</p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground mb-1">Location</p>
+                <p className="font-medium">{selectedEscort.location}</p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground mb-1">Gender</p>
+                <p className="font-medium">{selectedEscort.gender}</p>
+              </div>
+              {selectedEscort.date_of_birth && (
+                <div>
+                  <p className="text-sm text-muted-foreground mb-1">Date of Birth</p>
+                  <p className="font-medium">
+                    {new Date(selectedEscort.date_of_birth).toLocaleDateString()}
+                  </p>
+                </div>
+              )}
+              {selectedEscort.hourly_rate && (
+                <div>
+                  <p className="text-sm text-muted-foreground mb-1">Hourly Rate</p>
+                  <p className="font-medium">${selectedEscort.hourly_rate}</p>
+                </div>
+              )}
+              {selectedEscort.availability && (
+                <div>
+                  <p className="text-sm text-muted-foreground mb-1">Availability</p>
+                  <p className="font-medium">{selectedEscort.availability}</p>
+                </div>
+              )}
+              {selectedEscort.created_at && (
+                <div>
+                  <p className="text-sm text-muted-foreground mb-1">Registered</p>
+                  <p className="font-medium">
+                    {new Date(selectedEscort.created_at).toLocaleDateString()}
+                  </p>
+                </div>
+              )}
+              <div>
+                <p className="text-sm text-muted-foreground mb-1">Verification Status</p>
+                <p className="font-medium">
+                  {selectedEscort.verified ? (
+                    <span className="text-green-600">Verified</span>
+                  ) : (
+                    <span className="text-muted-foreground">Unverified</span>
+                  )}
+                </p>
+              </div>
+            </div>
+            {selectedEscort.languages && selectedEscort.languages.length > 0 && (
+              <div>
+                <p className="text-sm text-muted-foreground mb-2">Languages</p>
+                <div className="flex flex-wrap gap-2">
+                  {selectedEscort.languages.map((lang, idx) => (
+                    <span key={idx} className="px-2 py-1 bg-muted rounded text-sm">
+                      {lang}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+            {selectedEscort.services && selectedEscort.services.length > 0 && (
+              <div>
+                <p className="text-sm text-muted-foreground mb-2">Services</p>
+                <div className="flex flex-wrap gap-2">
+                  {selectedEscort.services.map((service, idx) => (
+                    <span key={idx} className="px-2 py-1 bg-muted rounded text-sm">
+                      {service}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+            {selectedEscort.bio && (
+              <div>
+                <p className="text-sm text-muted-foreground mb-2">Bio</p>
+                <p className="text-sm leading-relaxed">{selectedEscort.bio}</p>
+              </div>
+            )}
+            <div className="flex justify-end gap-2 pt-4 border-t border-border">
+              <Button
+                variant="outline"
+                onClick={() => setSelectedEscort(null)}
+              >
+                Close
+              </Button>
+              <Button
+                onClick={(e) => {
+                  e.stopPropagation()
+                  toggleVerification(e, selectedEscort.id!, selectedEscort.verified ?? false)
+                }}
+              >
+                {selectedEscort.verified ? 'Unverify' : 'Verify'}
+              </Button>
+            </div>
+          </div>
+        </Modal>
+      )}
     </div>
   )
 }
-
