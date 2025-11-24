@@ -115,7 +115,7 @@ export default function ProfileEscort() {
     <div className="min-h-screen bg-background p-4">
       <div className="max-w-3xl mx-auto space-y-6">
         <div className="flex justify-between items-center">
-          <h1 className="text-3xl font-bold">Escort Profile</h1>
+          <h1 className="text-3xl font-bold">Companion Profile</h1>
           <Button variant="outline" onClick={handleSignOut}>
             <LogOut className="w-4 h-4 mr-2" />
             Sign Out

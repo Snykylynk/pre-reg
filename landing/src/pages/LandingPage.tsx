@@ -33,7 +33,7 @@ export default function LandingPage() {
         <div className="max-w-4xl w-full text-center space-y-8 relative z-10">
         <div className="space-y-4">
           <h1 className="text-5xl md:text-6xl font-bold text-white fade-in-up" style={{ fontFamily: "'Libre Baskerville', serif", animationDelay: '0.1s' }}>
-            Snyky Lynk
+            Snyky<p>Lynk</p>
           </h1>
           <p className="text-xl md:text-2xl text-white font-black fade-in-up" style={{ animationDelay: '0.3s' }}>
             SNL
@@ -54,16 +54,16 @@ export default function LandingPage() {
         <div className="grid md:grid-cols-2 gap-6 mt-8">
           <div className="p-6 rounded-lg border border-white/30 transition-all duration-300 ease-in-out hover:border-white/50 hover:bg-card fade-in-up" style={{ animationDelay: '0.9s' }}>
             <Car className="w-12 h-12 mx-auto mb-4 text-primary icon-pulse" />
-            <h3 className="text-xl font-semibold mb-2 text-white">Taxi Services</h3>
+            <h3 className="text-xl font-semibold mb-2 text-white">Personal Chauffeur Services</h3>
             <p className="text-white/90">
-              Professional drivers ready to take you where you need to go, when you need to go.
+              Professional Chauffeurs ready to take you where you need to go, when you need to go.
             </p>
           </div>
           <div className="p-6 rounded-lg border border-white/30 transition-all duration-300 ease-in-out hover:border-white/50 hover:bg-card fade-in-up" style={{ animationDelay: '1.1s' }}>
             <Users className="w-12 h-12 mx-auto mb-4 text-primary icon-pulse" />
-            <h3 className="text-xl font-semibold mb-2 text-white">Escort Services</h3>
+            <h3 className="text-xl font-semibold mb-2 text-white">Companionship</h3>
             <p className="text-white/90">
-              Verified escorts available for companionship and social events.
+              Verified Baddies and Queens available for companionship and social events.
             </p>
           </div>
         </div>

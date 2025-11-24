@@ -790,7 +790,7 @@ export default function RegisterTaxi() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Taxi Owner Registration</CardTitle>
+            <CardTitle>Personal Chauffeur Registration</CardTitle>
             <CardDescription>
               Step {currentStep + 1} of {STEPS.length}: {STEPS[currentStep]}
             </CardDescription>

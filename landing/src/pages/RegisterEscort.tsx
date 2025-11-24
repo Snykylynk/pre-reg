@@ -666,7 +666,7 @@ export default function RegisterEscort() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Escort Registration</CardTitle>
+            <CardTitle>Companion Registration</CardTitle>
             <CardDescription>
               Step {currentStep + 1} of {STEPS.length}: {STEPS[currentStep]}
             </CardDescription>
